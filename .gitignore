@@ -1,0 +1,25 @@
+.env
+
+chroma_db/
+
+__pycache__/
+*.pyc
+
+sample.pdf
+FinSight RAG_app_sample1.pdf
+FinSight RAG_app_sample2.pdf
+IMF_WEO_2025.pdf
+IMF_WEO_2026.pdf
+screenshot/
+
+test.py
+openai_test.py
+pdf_test.py
+pdf_summary_test.py
+embeddings_test.py
+chroma_test.py
+chat_test.py
+rag_test.py
+
+app_v1.py
+app_v2.py
