@@ -17,7 +17,8 @@ st.subheader("Banking & Economic Research Assistant")
 
 st.write(
     "Upload banking, financial, policy, or economic reports. "
-    "FinSight can summarize individual reports, create a combined summary, compare reports, identify risks, and answer questions."
+    "FinSight can summarize individual reports, create a combined summary, compare reports, "
+    "identify risks, and answer follow-up questions using history-aware retrieval."
 )
 
 if "vector_store" not in st.session_state:
@@ -81,13 +82,62 @@ def build_context(docs):
 def get_llm():
     return ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
+def rewrite_followup_question(question, chat_history):
+    """
+    Rewrites vague follow-up questions into standalone questions before retrieval.
+    Example:
+    Previous question: "What does the IMF 2026 report say about inflation?"
+    Follow-up: "Is it worrisome?"
+    Rewritten: "Is the inflation outlook in the IMF 2026 report worrisome?"
+    """
+
+    if not chat_history:
+        return question
+
+    history_text = "\n".join([
+        f"User: {item['question']}\nAssistant: {item['answer']}"
+        for item in chat_history[-3:]
+    ])
+
+    prompt = ChatPromptTemplate.from_template("""
+You are a question rewriting assistant for a RAG system.
+
+Rewrite the user's latest question into a standalone question using the chat history.
+
+Rules:
+- Keep the meaning unchanged.
+- Do not answer the question.
+- If the question is already standalone, return it as-is.
+- Make vague references like "it", "this", "that", "they", "these risks", "the report", or "the above" explicit.
+- Preserve any report year, institution, topic, or entity from the chat history if needed.
+
+Chat History:
+{history}
+
+Latest User Question:
+{question}
+
+Standalone Question:
+""")
+
+    chain = prompt | get_llm()
+
+    response = chain.invoke({
+        "history": history_text,
+        "question": question
+    })
+
+    return response.content.strip()
+
 def answer_question(vector_store, question, chat_history):
+    standalone_question = rewrite_followup_question(question, chat_history)
+
     retriever = vector_store.as_retriever(
         search_type="mmr",
         search_kwargs={"k": 8, "fetch_k": 30}
     )
 
-    relevant_docs = retriever.invoke(question)
+    relevant_docs = retriever.invoke(standalone_question)
     context = build_context(relevant_docs)
 
     history_text = "\n".join([
@@ -115,25 +165,29 @@ Return:
 2. Key Supporting Points
 3. Source References
 
+Original User Question:
+{original_question}
+
+Standalone Retrieval Question:
+{standalone_question}
+
 Chat History:
 {history}
 
 Retrieved Document Context:
 {context}
-
-User Question:
-{question}
 """)
 
     chain = prompt | get_llm()
 
     response = chain.invoke({
+        "original_question": question,
+        "standalone_question": standalone_question,
         "history": history_text,
-        "context": context,
-        "question": question
+        "context": context
     })
 
-    return response.content, relevant_docs
+    return response.content, relevant_docs, standalone_question
 
 def generate_individual_report_summaries(vector_store, file_names):
     summaries = {}
@@ -401,7 +455,7 @@ if st.session_state.vector_store:
 
     st.markdown("## Ask Questions")
 
-    question = st.chat_input("Ask a specific question about the uploaded reports")
+    question = st.chat_input("Ask a specific question or follow-up question about the uploaded reports")
 
     for item in st.session_state.chat_history:
         with st.chat_message("user"):
@@ -415,7 +469,7 @@ if st.session_state.vector_store:
             st.write(question)
 
         with st.spinner("Generating answer..."):
-            answer, relevant_docs = answer_question(
+            answer, relevant_docs, standalone_question = answer_question(
                 st.session_state.vector_store,
                 question,
                 st.session_state.chat_history
@@ -423,6 +477,10 @@ if st.session_state.vector_store:
 
         with st.chat_message("assistant"):
             st.write(answer)
+
+            with st.expander("Retrieval details"):
+                st.write("Standalone retrieval question:")
+                st.write(standalone_question)
 
             with st.expander("Retrieved source snippets"):
                 for i, doc in enumerate(relevant_docs, start=1):
