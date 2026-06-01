@@ -2,9 +2,9 @@
 
 ### AI-Powered Banking & Economic Research Assistant
 
-FinSight RAG is a Retrieval-Augmented Generation (RAG) application that enables users to analyze banking, financial, economic, and policy reports using Large Language Models and vector search.
+FinSight RAG is a Generative AI (GenAI) and Retrieval-Augmented Generation (RAG) research assistant designed for banking, financial, economic, and policy analysis.
 
-The application transforms lengthy PDF reports into actionable insights through summarization, risk analysis, report comparison, and question answering.
+By combining Large Language Models (LLMs), vector databases, and retrieval-based reasoning, the application enables users to upload single or multiple documents and transform lengthy PDF reports into actionable insights through summarization, risk identification, report comparison, and source-grounded question answering.
 
 ---
 
